@@ -114,6 +114,7 @@ class Repository:
 
     def get_issues(self, status):
         issues = self.repo.get_issues(state=status)
+        print("start processing %s %r issues" % (issues.totalCount, status))
         for issue in self._paginate(issues):
             yield issue
 
