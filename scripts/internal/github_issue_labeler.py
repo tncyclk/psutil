@@ -31,6 +31,10 @@ def add_label(issue, label):
         issue.add_to_labels(label)
 
 
+def has_os_label(issue):
+    return bool(set([x.name for x in issue.labels]) & set(OS_LABELS))
+
+
 def set_labels_from_title(issue):
     def check_for(issue, label, keywords):
         for key in keywords:
@@ -99,7 +103,7 @@ def set_labels_from_title(issue):
          "segmentation fault", "ZeroDivisionError", "SystemError"])
 
 
-class Repository:
+class Retriever:
 
     def __init__(self, token):
         g = Github(token)
@@ -118,6 +122,12 @@ class Repository:
         for issue in self._paginate(issues):
             yield issue
 
+    def get_pulls(self, status):
+        prs = self.repo.get_pulls(state=status)
+        print("start processing %s %r PRs" % (prs.totalCount, status))
+        for pr in self._paginate(prs):
+            yield pr
+
 
 def main():
     global DRYRUN
@@ -130,6 +140,9 @@ def main():
     parser.add_argument('-d', '--dryrun', required=False, default=False,
                         action='store_true',
                         help="don't make actual changes")
+    parser.add_argument('--pulls', required=False, default=False,
+                        action='store_true',
+                        help="only process PR (not issues)")
     parser.add_argument('--status', required=False, default='open',
                         help="issue status (open, close, all)")
     args = parser.parse_args()
@@ -140,8 +153,12 @@ def main():
     DRYRUN = args.dryrun
 
     # run
-    repo = Repository(token)
-    for issue in repo.get_issues(args.status):
+    retr = Retriever(token)
+    if args.pulls:
+        issues = retr.get_pulls(args.status)
+    else:
+        issues = retr.get_issues(args.status)
+    for issue in issues:
         set_labels_from_title(issue)
 
 
