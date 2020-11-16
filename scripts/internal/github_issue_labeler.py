@@ -99,8 +99,27 @@ def set_labels_from_title(issue):
          "segmentation fault", "ZeroDivisionError", "SystemError"])
 
 
+class Repository:
+
+    def __init__(self, token):
+        g = Github(token)
+        self.repo = g.get_repo("%s/%s" % (USER, PROJECT))
+
+    def _paginate(self, issues):
+        tot = issues.totalCount
+        for i, issue in enumerate(issues, 1):
+            if i % 50 == 0:
+                print("%s/%s" % (i, tot))
+            yield issue
+
+    def get_issues(self, status):
+        issues = self.repo.get_issues(state=status)
+        for issue in self._paginate(issues):
+            yield issue
+
+
 def main():
-    global TOKEN, DRYRUN
+    global DRYRUN
 
     # parser
     parser = argparse.ArgumentParser(description='GitHub issue labeler')
@@ -116,14 +135,12 @@ def main():
 
     # set globals
     with open(os.path.expanduser(args.tokenfile)) as f:
-        TOKEN = f.read().strip()
+        token = f.read().strip()
     DRYRUN = args.dryrun
 
     # run
-    g = Github(TOKEN)
-    repo = g.get_repo("%s/%s" % (USER, PROJECT))
-    issues = repo.get_issues(state=args.status)
-    for issue in issues:
+    repo = Repository(token)
+    for issue in repo.get_issues(args.status):
         set_labels_from_title(issue)
 
 
