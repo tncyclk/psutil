@@ -12,16 +12,72 @@ appropriate labels.
 from __future__ import print_function
 import argparse
 import os
+import sys
 
 from github import Github
 
 
 USER = "giampaolo"
 PROJECT = "psutil"
-OS_LABELS = ["linux", "windows", "macos", "freebsd", "openbsd", "netbsd",
-             "openbsd", "sunos", "unix", "wsl", "aix", "cygwin"]
-TOKEN = ""
-WRITE = False
+OS_LABELS = [
+    "linux", "windows", "macos", "freebsd", "openbsd", "netbsd", "openbsd",
+    "sunos", "unix", "wsl", "aix", "cygwin",
+]
+
+labels_map = {
+    # platforms
+    "linux": [
+        "linux", "ubuntu", "redhat", "mint", "centos", "red hat", "archlinux",
+        "debian", "alpine", "gentoo", "fedora", "slackware", "suse", "RHEL",
+        "opensuse", "manylinux", "apt", "rpm", "yum",
+        "/sys/class", "/sys/", "/proc/net", "/proc/disk", "/proc/smaps",
+    ],
+    "windows": [
+        "windows", "win32", "WinError", "WindowsError", "win10", "win7",
+        "win", "mingw", "msys", "studio", "microsoft", "make.bat",
+        "CloseHandle", "GetLastError", "NtQuery", "DLL", "MSVC", "TCHAR",
+        "WCHAR", ".bat", "OpenProcess", "TerminateProcess", "appveyor",
+    ],
+    "macos": [
+        "macos", "mac ", "osx", "os x", "mojave", "sierra", "capitan",
+        "yosemite", "catalina", "xcode", "darwin",
+    ],
+    "aix": ["aix"],
+    "cygwin": ["cygwin"],
+    "freebsd": ["freebsd"],
+    "netbsd": ["netbsd"],
+    "openbsd": ["openbsd"],
+    "sunos": ["sunos", "solaris"],
+    "wsl": ["wsl"],
+    "pypy": ["pypy"],
+    "unix": [
+        "psposix", "_psutil_posix", "waitpid", "statvfs", "/dev/tty",
+        "/dev/pts",
+    ],
+    # types
+    "enhancement": ["enhancement"],
+    "memleak": ["memory leak", "leaks memory", "memleak", "mem leak"],
+    "api": ["idea", "proposal", "api", "feature"],
+    "performance": ["performance", "speedup", "slow", "fast"],
+    "wheels": ["wheel", "wheels"],
+    # doc
+    "doc": [
+        "doc ", "document ", "documentation", "readthedocs", "pythonhosted",
+        "HISTORY", "README", "dev guide", "devguide", "sphinx", "docfix",
+        "index.rst",
+    ],
+    # tests
+    "tests": [
+        "test", "tests", "travis", "coverage", "cirrus", "appveyor",
+        "continuous integration", "unittest", "pytest",
+    ],
+    # critical errors
+    "priority-high": [
+        "WinError", "WindowsError", "RuntimeError", "ZeroDivisionError",
+        "SystemError", "MemoryError",
+        "segfault", "segmentation fault",
+    ],
+}
 
 
 class Getter:
@@ -52,84 +108,35 @@ class Getter:
 
 class Setter:
 
+    def __init__(self, do_write):
+        self.do_write = do_write
+
+    # --- utils
+
+    def log(self, msg):
+        if not self.do_write:
+            msg = "(dry-run) " + msg
+        print(msg)
+
     def add_label(self, issue, label):
         assert label not in [x.name for x in issue.labels], label
-        print("adding label %r to '#%r: %s'" % (
+        self.log("adding label %r to '#%r: %s'" % (
             label, issue.number, issue.title))
-        if WRITE:
+        if self.do_write:
             issue.add_to_labels(label)
 
     def has_os_label(self, issue):
         return bool(set([x.name for x in issue.labels]) & set(OS_LABELS))
 
+    # --- setters
+
     def guess_from_title(self, issue):
-        def check_for(issue, label, keywords):
+        for label, keywords in labels_map.items():
             for key in keywords:
                 if key in issue.title.lower():
                     issue_labels = [x.name for x in issue.labels]
                     if label not in issue_labels:
                         self.add_label(issue, label)
-
-        # platforms
-        check_for(
-            issue, "linux",
-            ["linux", "ubuntu", "redhat", "mint", "centos", "red hat",
-             "archlinux", "debian", "alpine", "gentoo", "fedora", "slackware",
-             "suse", "RHEL", "opensuse", "manylinux", "apt", "rpm", "yum",
-             "/sys/class", "/sys/", "/proc/net", "/proc/disk", "/proc/smaps"])
-        check_for(
-            issue, "windows",
-            ["windows", "win32", "WinError", "WindowsError", "win10", "win7",
-             "win", "mingw", "msys", "studio", "microsoft", "make.bat",
-             "CloseHandle", "GetLastError", "NtQuery", "DLL", "MSVC", "TCHAR",
-             "WCHAR", ".bat", "OpenProcess", "TerminateProcess",
-             "appveyor"])
-        check_for(
-            issue, "macos",
-            ["macos", "mac ", "osx", "os x", "mojave", "sierra", "capitan",
-             "yosemite", "catalina", "xcode", "darwin"])
-        check_for(issue, "aix", ["aix"])
-        check_for(issue, "cygwin", ["cygwin"])
-        check_for(issue, "freebsd", ["freebsd"])
-        check_for(issue, "netbsd", ["netbsd"])
-        check_for(issue, "openbsd", ["openbsd"])
-        check_for(issue, "sunos", ["sunos", "solaris"])
-        check_for(issue, "unix", ["makefile"])
-        check_for(issue, "wsl", ["wsl"])
-        check_for(issue, "pypy", ["pypy"])
-        check_for(
-            issue, "unix",
-            ["psposix", "_psutil_posix", "waitpid", "statvfs", "/dev/tty",
-             "/dev/pts"])
-
-        # types
-        # check_for(issue, " bug ", ["bug"])
-        check_for(issue, "enhancement", ["enhancement"])
-        check_for(
-            issue, "memleak",
-            ["memory leak", "leaks memory", "memleak", "mem leak"])
-
-        # doc
-        check_for(
-            issue, "doc",
-            ["doc ", "document ", "documentation", "readthedocs", "pythonhosted",
-             "HISTORY", "README", "dev guide", "devguide", "sphinx", "docfix",
-             "index.rst"])
-        check_for(issue, "api", ["idea", "proposal", "api", "feature"])
-        check_for(issue, "performance", ["performance", "speedup", "slow", "fast"])
-
-        # tests
-        check_for(
-            issue, "tests",
-            ["test", "tests", "travis", "coverage", "cirrus", "appveyor",
-             "continuous integration", "unittest", "pytest"])
-        check_for(issue, "wheels", ["wheel", "wheels"])
-
-        # critical errors
-        check_for(
-            issue, "priority-high",
-            ["WinError", "WindowsError", "RuntimeError", "segfault",
-             "segmentation fault", "ZeroDivisionError", "SystemError"])
 
     def logical_adjust(self, issue):
         labels = [x.name for x in issue.labels]
@@ -137,7 +144,8 @@ class Setter:
 
         # "bug" + "enhancement" don't make sense
         if 'bug' in labels and 'enhancement' in labels:
-            print(">>> WARN: can't have 'bug' + 'enhancement' labels: %r" % issue)
+            print(">>> WARN: can't have 'bug' + 'enhancement' labels: %r" % (
+                  issue), file=sys.stderr)
 
         # no "enhancement" nor "bug"
         if 'bug' not in labels and 'enhancement' not in labels and \
@@ -175,11 +183,10 @@ def main():
     # set globals
     with open(os.path.expanduser(args.tokenfile)) as f:
         token = f.read().strip()
-    WRITE = args.write
 
     # run
     getter = Getter(token)
-    setter = Setter()
+    setter = Setter(args.write)
     if args.pulls:
         issues = getter.get_pulls(args.status)
     else:
