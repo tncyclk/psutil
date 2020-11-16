@@ -24,6 +24,32 @@ TOKEN = ""
 DRYRUN = False
 
 
+class Retriever:
+
+    def __init__(self, token):
+        g = Github(token)
+        self.repo = g.get_repo("%s/%s" % (USER, PROJECT))
+
+    def _paginate(self, issues):
+        tot = issues.totalCount
+        for i, issue in enumerate(issues, 1):
+            if i % 50 == 0:
+                print("%s/%s" % (i, tot))
+            yield issue
+
+    def get_issues(self, status):
+        issues = self.repo.get_issues(state=status)
+        print("start processing %s %r issues" % (issues.totalCount, status))
+        for issue in self._paginate(issues):
+            yield issue
+
+    def get_pulls(self, status):
+        prs = self.repo.get_pulls(state=status)
+        print("start processing %s %r PRs" % (prs.totalCount, status))
+        for pr in self._paginate(prs):
+            yield pr
+
+
 def add_label(issue, label):
     print("adding label %r to '#%r: %s'" % (
         label, issue.number, issue.title))
@@ -35,7 +61,7 @@ def has_os_label(issue):
     return bool(set([x.name for x in issue.labels]) & set(OS_LABELS))
 
 
-def set_labels_from_title(issue):
+def guess_labels_from_title(issue):
     def check_for(issue, label, keywords):
         for key in keywords:
             if key in issue.title.lower():
@@ -103,32 +129,6 @@ def set_labels_from_title(issue):
          "segmentation fault", "ZeroDivisionError", "SystemError"])
 
 
-class Retriever:
-
-    def __init__(self, token):
-        g = Github(token)
-        self.repo = g.get_repo("%s/%s" % (USER, PROJECT))
-
-    def _paginate(self, issues):
-        tot = issues.totalCount
-        for i, issue in enumerate(issues, 1):
-            if i % 50 == 0:
-                print("%s/%s" % (i, tot))
-            yield issue
-
-    def get_issues(self, status):
-        issues = self.repo.get_issues(state=status)
-        print("start processing %s %r issues" % (issues.totalCount, status))
-        for issue in self._paginate(issues):
-            yield issue
-
-    def get_pulls(self, status):
-        prs = self.repo.get_pulls(state=status)
-        print("start processing %s %r PRs" % (prs.totalCount, status))
-        for pr in self._paginate(prs):
-            yield pr
-
-
 def main():
     global DRYRUN
 
@@ -142,9 +142,9 @@ def main():
                         help="don't make actual changes")
     parser.add_argument('--pulls', required=False, default=False,
                         action='store_true',
-                        help="only process PR (not issues)")
+                        help="only process PRs (not issues)")
     parser.add_argument('--status', required=False, default='open',
-                        help="issue status (open, close, all)")
+                        help="issue status (open*, close, all)")
     args = parser.parse_args()
 
     # set globals
@@ -159,7 +159,7 @@ def main():
     else:
         issues = retr.get_issues(args.status)
     for issue in issues:
-        set_labels_from_title(issue)
+        guess_labels_from_title(issue)
 
 
 if __name__ == '__main__':
