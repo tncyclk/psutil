@@ -24,7 +24,7 @@ TOKEN = ""
 WRITE = False
 
 
-class Retriever:
+class Getter:
 
     def __init__(self, token):
         g = Github(token)
@@ -50,89 +50,108 @@ class Retriever:
             yield pr
 
 
-def add_label(issue, label):
-    print("adding label %r to '#%r: %s'" % (
-        label, issue.number, issue.title))
-    if WRITE:
-        issue.add_to_labels(label)
+class Setter:
 
+    def add_label(self, issue, label):
+        assert label not in [x.name for x in issue.labels], label
+        print("adding label %r to '#%r: %s'" % (
+            label, issue.number, issue.title))
+        if WRITE:
+            issue.add_to_labels(label)
 
-def has_os_label(issue):
-    return bool(set([x.name for x in issue.labels]) & set(OS_LABELS))
+    def has_os_label(self, issue):
+        return bool(set([x.name for x in issue.labels]) & set(OS_LABELS))
 
+    def guess_from_title(self, issue):
+        def check_for(issue, label, keywords):
+            for key in keywords:
+                if key in issue.title.lower():
+                    issue_labels = [x.name for x in issue.labels]
+                    if label not in issue_labels:
+                        self.add_label(issue, label)
 
-def guess_labels_from_title(issue):
-    def check_for(issue, label, keywords):
-        for key in keywords:
-            if key in issue.title.lower():
-                issue_labels = [x.name for x in issue.labels]
-                if label not in issue_labels:
-                    add_label(issue, label)
+        # platforms
+        check_for(
+            issue, "linux",
+            ["linux", "ubuntu", "redhat", "mint", "centos", "red hat",
+             "archlinux", "debian", "alpine", "gentoo", "fedora", "slackware",
+             "suse", "RHEL", "opensuse", "manylinux", "apt", "rpm", "yum",
+             "/sys/class", "/sys/", "/proc/net", "/proc/disk", "/proc/smaps"])
+        check_for(
+            issue, "windows",
+            ["windows", "win32", "WinError", "WindowsError", "win10", "win7",
+             "win", "mingw", "msys", "studio", "microsoft", "make.bat",
+             "CloseHandle", "GetLastError", "NtQuery", "DLL", "MSVC", "TCHAR",
+             "WCHAR", ".bat", "OpenProcess", "TerminateProcess",
+             "appveyor"])
+        check_for(
+            issue, "macos",
+            ["macos", "mac ", "osx", "os x", "mojave", "sierra", "capitan",
+             "yosemite", "catalina", "xcode", "darwin"])
+        check_for(issue, "aix", ["aix"])
+        check_for(issue, "cygwin", ["cygwin"])
+        check_for(issue, "freebsd", ["freebsd"])
+        check_for(issue, "netbsd", ["netbsd"])
+        check_for(issue, "openbsd", ["openbsd"])
+        check_for(issue, "sunos", ["sunos", "solaris"])
+        check_for(issue, "unix", ["makefile"])
+        check_for(issue, "wsl", ["wsl"])
+        check_for(issue, "pypy", ["pypy"])
+        check_for(
+            issue, "unix",
+            ["psposix", "_psutil_posix", "waitpid", "statvfs", "/dev/tty",
+             "/dev/pts"])
 
-    # platforms
-    check_for(
-        issue, "linux",
-        ["linux", "ubuntu", "redhat", "mint", "centos", "red hat", "archlinux",
-         "debian", "alpine", "gentoo", "fedora", "slackware", "suse", "RHEL",
-         "opensuse", "manylinux", "apt", "rpm", "yum", "/sys/class",
-         "/sys/block", "/proc/net", "/proc/disk", "/proc/smaps"])
-    check_for(
-        issue, "windows",
-        ["windows", "win32", "WinError", "WindowsError", "win10", "win7",
-         "win", "mingw", "msys", "studio", "microsoft", "make.bat",
-         "CloseHandle", "GetLastError", "NtQuery", "DLL", "MSVC", "TCHAR",
-         "WCHAR", ".bat", "OpenProcess", "TerminateProcess",
-         "appveyor"])
-    check_for(
-        issue, "macos",
-        ["macos", "mac ", "osx", "os x", "mojave", "sierra", "capitan",
-         "yosemite", "catalina", "xcode", "darwin"])
-    check_for(issue, "aix", ["aix"])
-    check_for(issue, "cygwin", ["cygwin"])
-    check_for(issue, "freebsd", ["freebsd"])
-    check_for(issue, "netbsd", ["netbsd"])
-    check_for(issue, "openbsd", ["openbsd"])
-    check_for(issue, "sunos", ["sunos", "solaris"])
-    check_for(issue, "unix", ["makefile"])
-    check_for(issue, "wsl", ["wsl"])
-    check_for(issue, "pypy", ["pypy"])
-    check_for(
-        issue, "unix",
-        ["psposix", "waitpid", "statvfs", "/dev/tty", "/dev/pts"])
+        # types
+        # check_for(issue, " bug ", ["bug"])
+        check_for(issue, "enhancement", ["enhancement"])
+        check_for(
+            issue, "memleak",
+            ["memory leak", "leaks memory", "memleak", "mem leak"])
 
-    # types
-    # check_for(issue, " bug ", ["bug"])
-    check_for(issue, "enhancement", ["enhancement"])
-    check_for(
-        issue, "memleak",
-        ["memory leak", "leaks memory", "memleak", "mem leak"])
+        # doc
+        check_for(
+            issue, "doc",
+            ["doc ", "document ", "documentation", "readthedocs", "pythonhosted",
+             "HISTORY", "README", "dev guide", "devguide", "sphinx", "docfix",
+             "index.rst"])
+        check_for(issue, "api", ["idea", "proposal", "api", "feature"])
+        check_for(issue, "performance", ["performance", "speedup", "slow", "fast"])
 
-    # doc
-    check_for(
-        issue, "doc",
-        ["doc ", "document ", "documentation", "readthedocs", "pythonhosted",
-         "HISTORY.rst", "README", "dev guide", "devguide", "sphinx"])
-    check_for(issue, "api", ["idea", "proposal", "api", "feature"])
-    check_for(issue, "performance", ["performance", "speedup", "slow", "fast"])
+        # tests
+        check_for(
+            issue, "tests",
+            ["test", "tests", "travis", "coverage", "cirrus", "appveyor",
+             "continuous integration", "unittest", "pytest"])
+        check_for(issue, "wheels", ["wheel", "wheels"])
 
-    # tests
-    check_for(
-        issue, "tests",
-        ["test", "tests", "travis", "coverage", "cirrus", "appveyor",
-         "continuous integration", "unittest", "pytest"])
-    check_for(issue, "wheels", ["wheel", "wheels"])
+        # critical errors
+        check_for(
+            issue, "priority-high",
+            ["WinError", "WindowsError", "RuntimeError", "segfault",
+             "segmentation fault", "ZeroDivisionError", "SystemError"])
 
-    # critical errors
-    check_for(
-        issue, "priority-high",
-        ["WinError", "WindowsError", "RuntimeError", "segfault",
-         "segmentation fault", "ZeroDivisionError", "SystemError"])
+    def logical_adjust(self, issue):
+        labels = [x.name for x in issue.labels]
+        title = issue.title.lower()
 
+        # "bug" + "enhancement" don't make sense
+        if 'bug' in labels and 'enhancement' in labels:
+            print(">>> WARN: can't have 'bug' + 'enhancement' labels: %r" % issue)
 
-def logical_label_adjustment(issue):
-    labels = [x.name for x in issue.labels]
-    if 'bug' in labels and 'enhancement' in labels:
-        print(">>> WARN: can't have 'bug' + 'enhancement' labels: %r" % issue)
+        # no "enhancement" nor "bug"
+        if 'bug' not in labels and 'enhancement' not in labels and \
+                "doc" not in labels:
+            if 'add support' in title or \
+                    'refactoring' in title or \
+                    'enhancement' in title or \
+                    'adds support' in title:
+                self.add_label(issue, 'enhancement')
+            elif 'fix' in title or \
+                    'fixes' in title or \
+                    'is incorrect' in title or \
+                    'is wrong' in title:
+                self.add_label(issue, 'bug')
 
 
 def main():
@@ -143,13 +162,13 @@ def main():
     parser.add_argument('--tokenfile', required=False,
                         default='~/.github.token',
                         help="a path to file contaning the GH token")
-    parser.add_argument('--write', required=False, default=False,
+    parser.add_argument('-w', '--write', required=False, default=False,
                         action='store_true',
                         help="do the actual changes (default: dryrun)")
-    parser.add_argument('--pulls', required=False, default=False,
+    parser.add_argument('-p', '--pulls', required=False, default=False,
                         action='store_true',
                         help="only process PRs (not issues)")
-    parser.add_argument('--status', required=False, default='open',
+    parser.add_argument('-s', '--status', required=False, default='open',
                         help="issue status (open*, close, all)")
     args = parser.parse_args()
 
@@ -159,14 +178,15 @@ def main():
     WRITE = args.write
 
     # run
-    retr = Retriever(token)
+    getter = Getter(token)
+    setter = Setter()
     if args.pulls:
-        issues = retr.get_pulls(args.status)
+        issues = getter.get_pulls(args.status)
     else:
-        issues = retr.get_issues(args.status)
+        issues = getter.get_issues(args.status)
     for issue in issues:
-        guess_labels_from_title(issue)
-        logical_label_adjustment(issue)
+        setter.guess_from_title(issue)
+        setter.logical_adjust(issue)
 
 
 if __name__ == '__main__':
