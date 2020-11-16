@@ -325,5 +325,8 @@ bench-oneshot-2:  ## Same as above but using perf module (supposed to be more pr
 check-broken-links:  ## Look for broken links in source files.
 	git ls-files | xargs $(PYTHON) -Wa scripts/internal/check_broken_links.py
 
+github-issue-labeler:  ## Apply labels to GitHub issues from their titles
+	$(PYTHON) scripts/internal/github_issue_labeler.py --tokenfile=~/.github.token
+
 help: ## Display callable targets.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
