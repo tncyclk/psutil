@@ -15,6 +15,7 @@ DEPS = \
 	coverage \
 	flake8 \
 	flake8-print \
+	PyGithub \
 	pyperf \
 	pypinfo \
 	requests \

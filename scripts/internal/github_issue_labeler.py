@@ -18,6 +18,8 @@ from github import Github
 
 USER = "giampaolo"
 PROJECT = "psutil"
+OS_LABELS = ["linux", "windows", "macos", "freebsd", "openbsd", "netbsd",
+             "openbsd", "sunos", "unix", "wsl", "aix", "cygwin"]
 TOKEN = ""
 DRYRUN = False
 
@@ -100,6 +102,7 @@ def set_labels_from_title(issue):
 def main():
     global TOKEN, DRYRUN
 
+    # parser
     parser = argparse.ArgumentParser(description='GitHub issue labeler')
     parser.add_argument('--tokenfile', required=False,
                         default='~/.github.token',
@@ -108,9 +111,13 @@ def main():
                         action='store_true',
                         help="don't make actual changes")
     args = parser.parse_args()
+
+    # set globals
     with open(os.path.expanduser(args.tokenfile)) as f:
         TOKEN = f.read().strip()
+    DRYRUN = args.dryrun
 
+    # run
     g = Github(TOKEN)
     repo = g.get_repo("%s/%s" % (USER, PROJECT))
     issues = repo.get_issues(state='all')
