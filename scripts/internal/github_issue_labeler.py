@@ -110,6 +110,8 @@ def main():
     parser.add_argument('-d', '--dryrun', required=False, default=False,
                         action='store_true',
                         help="don't make actual changes")
+    parser.add_argument('--status', required=False, default='open',
+                        help="issue status (open, close, all)")
     args = parser.parse_args()
 
     # set globals
@@ -120,7 +122,7 @@ def main():
     # run
     g = Github(TOKEN)
     repo = g.get_repo("%s/%s" % (USER, PROJECT))
-    issues = repo.get_issues(state='all')
+    issues = repo.get_issues(state=args.status)
     for issue in issues:
         set_labels_from_title(issue)
 
