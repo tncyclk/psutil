@@ -9,6 +9,7 @@ Check for certain keywords in GitHub's issue's titles and apply the
 appropriate labels.
 """
 
+from __future__ import print_function
 import argparse
 import os
 
@@ -18,19 +19,24 @@ from github import Github
 USER = "giampaolo"
 PROJECT = "psutil"
 TOKEN = ""
+DRYRUN = False
 
 
-def check_for(issue, label, keywords):
-    for key in keywords:
-        if key in issue.title.lower():
-            issue_labels = [x.name for x in issue.labels]
-            if label not in issue_labels:
-                print("adding label %r to '#%r: %s'" % (
-                    label, issue.number, issue.title))
-                issue.add_to_labels(label)
+def add_label(issue, label):
+    print("adding label %r to '#%r: %s'" % (
+        label, issue.number, issue.title))
+    if not DRYRUN:
+        issue.add_to_labels(label)
 
 
-def recommended_labels(issue):
+def set_labels_from_title(issue):
+    def check_for(issue, label, keywords):
+        for key in keywords:
+            if key in issue.title.lower():
+                issue_labels = [x.name for x in issue.labels]
+                if label not in issue_labels:
+                    add_label(issue, label)
+
     # platforms
     check_for(
         issue, "linux",
@@ -92,9 +98,15 @@ def recommended_labels(issue):
 
 
 def main():
-    global TOKEN
+    global TOKEN, DRYRUN
+
     parser = argparse.ArgumentParser(description='GitHub issue labeler')
-    parser.add_argument('--tokenfile', required=True)
+    parser.add_argument('--tokenfile', required=False,
+                        default='~/.github.token',
+                        help="a path to file contaning the GH token")
+    parser.add_argument('-d', '--dryrun', required=False, default=False,
+                        action='store_true',
+                        help="don't make actual changes")
     args = parser.parse_args()
     with open(os.path.expanduser(args.tokenfile)) as f:
         TOKEN = f.read().strip()
@@ -103,7 +115,7 @@ def main():
     repo = g.get_repo("%s/%s" % (USER, PROJECT))
     issues = repo.get_issues(state='all')
     for issue in issues:
-        recommended_labels(issue)
+        set_labels_from_title(issue)
 
 
 if __name__ == '__main__':
