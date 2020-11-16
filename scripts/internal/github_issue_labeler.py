@@ -21,7 +21,7 @@ PROJECT = "psutil"
 OS_LABELS = ["linux", "windows", "macos", "freebsd", "openbsd", "netbsd",
              "openbsd", "sunos", "unix", "wsl", "aix", "cygwin"]
 TOKEN = ""
-DRYRUN = False
+WRITE = False
 
 
 class Retriever:
@@ -53,7 +53,7 @@ class Retriever:
 def add_label(issue, label):
     print("adding label %r to '#%r: %s'" % (
         label, issue.number, issue.title))
-    if not DRYRUN:
+    if WRITE:
         issue.add_to_labels(label)
 
 
@@ -101,7 +101,7 @@ def guess_labels_from_title(issue):
         ["psposix", "waitpid", "statvfs", "/dev/tty", "/dev/pts"])
 
     # types
-    check_for(issue, "bug", ["bug", "raise", "exception", "traceback"])
+    # check_for(issue, " bug ", ["bug"])
     check_for(issue, "enhancement", ["enhancement"])
     check_for(
         issue, "memleak",
@@ -129,17 +129,23 @@ def guess_labels_from_title(issue):
          "segmentation fault", "ZeroDivisionError", "SystemError"])
 
 
+def logical_label_adjustment(issue):
+    labels = [x.name for x in issue.labels]
+    if 'bug' in labels and 'enhancement' in labels:
+        print(">>> WARN: can't have 'bug' + 'enhancement' labels: %r" % issue)
+
+
 def main():
-    global DRYRUN
+    global WRITE
 
     # parser
     parser = argparse.ArgumentParser(description='GitHub issue labeler')
     parser.add_argument('--tokenfile', required=False,
                         default='~/.github.token',
                         help="a path to file contaning the GH token")
-    parser.add_argument('-d', '--dryrun', required=False, default=False,
+    parser.add_argument('--write', required=False, default=False,
                         action='store_true',
-                        help="don't make actual changes")
+                        help="do the actual changes (default: dryrun)")
     parser.add_argument('--pulls', required=False, default=False,
                         action='store_true',
                         help="only process PRs (not issues)")
@@ -150,7 +156,7 @@ def main():
     # set globals
     with open(os.path.expanduser(args.tokenfile)) as f:
         token = f.read().strip()
-    DRYRUN = args.dryrun
+    WRITE = args.write
 
     # run
     retr = Retriever(token)
@@ -160,6 +166,7 @@ def main():
         issues = retr.get_issues(args.status)
     for issue in issues:
         guess_labels_from_title(issue)
+        logical_label_adjustment(issue)
 
 
 if __name__ == '__main__':

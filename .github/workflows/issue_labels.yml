@@ -27,7 +27,6 @@ jobs:
   {"keywords": ["sunos", "solaris"], "labels": ["sunos"], "assignees": ["wiggin15"]},
   {"keywords": ["windows", "win32", "WinError", "WindowsError", "win10", "win7", "win", "mingw", "msys", "studio", "microsoft", "MSVC", "TCHAR", "WCHAR", "make.bat", ".bat", "appveyor", "handles", "CloseHandle", "GetLastError", "NtQuery", "OpenProcess", "TerminateProcess", "DLL"], "labels": ["windows"], "assignees": [""]},
   {"keywords": ["wsl"], "labels": ["wsl"], "assignees": [""]},
-  {"keywords": ["bug", "raise", "exception", "traceback"], "labels": ["bug"], "assignees": [""]},
   {"keywords": ["enhancement"], "labels": ["enhancement"], "assignees": [""]},
   {"keywords": ["doc ", "document ", "documentation", "readthedocs", "pythonhosted", "HISTORY.txt", "README"], "labels": ["doc"], "assignees": [""]},
   {"keywords": ["idea", "proposal", "api", "feature"], "labels": ["api", "enhancement"], "assignees": [""]},
