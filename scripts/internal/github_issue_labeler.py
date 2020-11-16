@@ -17,11 +17,15 @@ import sys
 from github import Github
 
 
+ROOT_DIR = os.path.realpath(
+    os.path.join(os.path.dirname(__file__), '..', '..'))
+SCRIPTS_DIR = os.path.join(ROOT_DIR, 'scripts')
+
 USER = "giampaolo"
 PROJECT = "psutil"
 OS_LABELS = [
     "linux", "windows", "macos", "freebsd", "openbsd", "netbsd", "openbsd",
-    "sunos", "unix", "wsl", "aix", "cygwin",
+    "bsd", "sunos", "unix", "wsl", "aix", "cygwin",
 ]
 
 labels_map = {
@@ -29,8 +33,9 @@ labels_map = {
     "linux": [
         "linux", "ubuntu", "redhat", "mint", "centos", "red hat", "archlinux",
         "debian", "alpine", "gentoo", "fedora", "slackware", "suse", "RHEL",
-        "opensuse", "manylinux", "apt", "rpm", "yum",
+        "opensuse", "manylinux", "apt", "rpm", "yum", "kali",
         "/sys/class", "/sys/", "/proc/net", "/proc/disk", "/proc/smaps",
+        "/proc/vmstat",
     ],
     "windows": [
         "windows", "win32", "WinError", "WindowsError", "win10", "win7",
@@ -60,6 +65,12 @@ labels_map = {
     "api": ["idea", "proposal", "api", "feature"],
     "performance": ["performance", "speedup", "slow", "fast"],
     "wheels": ["wheel", "wheels"],
+    "scripts": [
+        "example script", "examples script", "example dir", "scripts/",
+    ],
+    # bug
+    "bug": ["can't execute", "can't install", "cannot execute",
+            "cannot install"],
     # doc
     "doc": [
         "doc ", "document ", "documentation", "readthedocs", "pythonhosted",
@@ -69,15 +80,18 @@ labels_map = {
     # tests
     "tests": [
         "test", "tests", "travis", "coverage", "cirrus", "appveyor",
-        "continuous integration", "unittest", "pytest",
+        "continuous integration", "unittest", "pytest", "unit test",
     ],
     # critical errors
     "priority-high": [
         "WinError", "WindowsError", "RuntimeError", "ZeroDivisionError",
-        "SystemError", "MemoryError",
+        "SystemError", "MemoryError", "core dumped",
         "segfault", "segmentation fault",
     ],
 }
+
+labels_map['scripts'].extend(
+    [x for x in os.listdir(SCRIPTS_DIR) if x.endswith('.py')])
 
 
 class Getter:
@@ -125,27 +139,42 @@ class Setter:
         if self.do_write:
             issue.add_to_labels(label)
 
+    def has_label(self, issue, label):
+        return label in [x.name for x in issue.labels]
+
     def has_os_label(self, issue):
-        return bool(set([x.name for x in issue.labels]) & set(OS_LABELS))
+        labels = set([x.name for x in issue.labels])
+        for label in OS_LABELS:
+            if label in labels:
+                return True
+        return False
 
     # --- setters
 
     def guess_from_title(self, issue):
         for label, keywords in labels_map.items():
             for key in keywords:
-                if key in issue.title.lower():
+                if key.lower() in issue.title.lower():
                     issue_labels = [x.name for x in issue.labels]
                     if label not in issue_labels:
                         self.add_label(issue, label)
 
     def logical_adjust(self, issue):
+        def check_dual_label(a, b):
+            if a in labels and b in labels:
+                print(">>> WARN: can't have %r and %r labels: %r" % (
+                      a, b, issue), file=sys.stderr)
+                return True
+            return False
+
         labels = [x.name for x in issue.labels]
         title = issue.title.lower()
 
         # "bug" + "enhancement" don't make sense
-        if 'bug' in labels and 'enhancement' in labels:
-            print(">>> WARN: can't have 'bug' + 'enhancement' labels: %r" % (
-                  issue), file=sys.stderr)
+        check_dual_label("bug", "enhancement")
+        check_dual_label("scripts", "doc")
+        check_dual_label("scripts", "test")
+        # check_dual_label("bug", "doc")
 
         # no "enhancement" nor "bug"
         if 'bug' not in labels and 'enhancement' not in labels and \
@@ -160,6 +189,26 @@ class Setter:
                     'is incorrect' in title or \
                     'is wrong' in title:
                 self.add_label(issue, 'bug')
+
+        # generic BSD
+        if not self.has_os_label(issue) and 'bsd' in title:
+            self.add_label(issue, 'bsd')
+
+        # if not self.has_os_label(issue) and not \
+        #         self.has_label(issue, 'doc') and not \
+        #         self.has_label(issue, 'test') and not \
+        #         self.has_label(issue, 'scripts'):
+        #     print(issue)
+
+        # not "bug" nor "enhancement"
+        # if not self.has_label(issue, 'enhancement') and not \
+        #         self.has_label(issue, 'bug'):
+        #     if 'support' in title and 'broken' not in title:
+        #         self.add_label(issue, 'enhancement')
+        #     elif 'improve' in title or 'refactor' in title:
+        #         self.add_label(issue, 'enhancement')
+        #     else:
+        #         print(issue)
 
 
 def main():
