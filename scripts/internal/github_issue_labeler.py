@@ -70,7 +70,8 @@ labels_map = {
     ],
     # bug
     "bug": ["can't execute", "can't install", "cannot execute",
-            "cannot install"],
+            "cannot install", "install fail", "fail install",
+            "failed install", "install error"],
     # doc
     "doc": [
         "doc ", "document ", "documentation", "readthedocs", "pythonhosted",
