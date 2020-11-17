@@ -38,6 +38,6 @@ jobs:
   {"keywords": ["test", "tests", "travis", "coverage", "travis", "cirrus", "appveyor", "continuous integration", "dev guide", "devguide", "sphinx", "unittest", "pytest"], "labels": ["tests"], "assignees": [""]},
   {"keywords": ["Makefile"], "labels": ["unix"], "assignees": [""]},
   {"keywords": ["segfault", "segmentation fault", "core dumped", "RuntimeError", "WinError", "WindowsError", "MemoryError", "OverflowError", "ZeroDivisionError", "SystemError", "MemoryError"], "labels": ["priority-high"], "assignees": [""]},
-  {"keywords": ["wheel", "wheels"], "labels": ["wheels"], "assignees": [""]}
-  {"keywords": ["can\'t execute", "can\'t install"], "labels": ["bug"], "assignees": [""]},
+  {"keywords": ["can''t execute", "can''t install"], "labels": ["bug"], "assignees": [""]},
+  {"keywords": ["wheel"], "labels": ["wheels"], "assignees": [""]}
 ]'

@@ -98,7 +98,7 @@ class Getter:
 
     def __init__(self, token):
         g = Github(token)
-        self.repo = g.get_repo("%s/%s" % (USER, PROJECT))
+        self._repo = g.get_repo("%s/%s" % (USER, PROJECT))
 
     def _paginate(self, issues):
         tot = issues.totalCount
@@ -106,6 +106,10 @@ class Getter:
             if i % 50 == 0:
                 print("%s/%s" % (i, tot))
             yield issue
+
+    @property
+    def repo(self):
+        return self._repo
 
     def get_issues(self, status):
         issues = self.repo.get_issues(state=status)
@@ -122,8 +126,10 @@ class Getter:
 
 class Setter:
 
-    def __init__(self, do_write):
+    def __init__(self, repo, do_write):
+        self.repo = repo
         self.do_write = do_write
+        self.avail_labels = sorted([x.name for x in self.repo.get_labels()])
 
     # --- utils
 
@@ -133,14 +139,16 @@ class Setter:
         print(msg)
 
     def add_label(self, issue, label):
-        assert label not in [x.name for x in issue.labels], label
-        self.log("adding label %r to '#%r: %s'" % (
-            label, issue.number, issue.title))
-        if self.do_write:
-            issue.add_to_labels(label)
+        assert label in self.avail_labels, (label, self.avail_labels)
+        if not self.has_label(issue, label):
+            self.log("add label %r to '#%r: %s'" % (
+                label, issue.number, issue.title))
+            if self.do_write:
+                issue.add_to_labels(label)
 
     def has_label(self, issue, label):
-        return label in [x.name for x in issue.labels]
+        assigned = [x.name for x in issue.labels]
+        return label in assigned
 
     def has_os_label(self, issue):
         labels = set([x.name for x in issue.labels])
@@ -148,6 +156,9 @@ class Setter:
             if label in labels:
                 return True
         return False
+
+    def is_pr(self, issue):
+        return 'PullRequest' in issue.__module__
 
     # --- setters
 
@@ -210,6 +221,12 @@ class Setter:
         #     else:
         #         print(issue)
 
+    def adjust_pr(self, pr):
+        files = sorted([x.filename for x in pr.get_files()])
+        # pure doc change
+        if files == ['docs/index.rst']:
+            self.add_label(pr, 'doc')
+
 
 def main():
     global WRITE
@@ -235,7 +252,7 @@ def main():
 
     # run
     getter = Getter(token)
-    setter = Setter(args.write)
+    setter = Setter(getter.repo, args.write)
     if args.pulls:
         issues = getter.get_pulls(args.status)
     else:
@@ -243,6 +260,8 @@ def main():
     for issue in issues:
         setter.guess_from_title(issue)
         setter.logical_adjust(issue)
+        # if setter.is_pr(issue):
+        #     setter.adjust_pr(issue)
 
 
 if __name__ == '__main__':
