@@ -5,8 +5,7 @@
 # found in the LICENSE file.
 
 """
-Check for certain keywords in GitHub's issue's titles and apply the
-appropriate labels.
+Try to guess and apply appropriate labels to GitHub's issues and PRs.
 """
 
 from __future__ import print_function
@@ -233,7 +232,7 @@ def main():
     global WRITE
 
     # parser
-    parser = argparse.ArgumentParser(description='GitHub issue labeler')
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tokenfile', required=False,
                         default='~/.github.token',
                         help="a path to file contaning the GH token")
