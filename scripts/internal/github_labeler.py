@@ -12,8 +12,11 @@ from __future__ import print_function
 import argparse
 import os
 import sys
+import textwrap
 
 from github import Github
+
+from psutil._common import hilite
 
 
 ROOT_DIR = os.path.realpath(
@@ -32,13 +35,13 @@ labels_map = {
     "linux": [
         "linux", "ubuntu", "redhat", "mint", "centos", "red hat", "archlinux",
         "debian", "alpine", "gentoo", "fedora", "slackware", "suse", "RHEL",
-        "opensuse", "manylinux", "apt", "rpm", "yum", "kali",
-        "/sys/class", "/sys/", "/proc/net", "/proc/disk", "/proc/smaps",
+        "opensuse", "manylinux", "apt ", "apt-", "rpm", "yum", "kali",
+        "/sys/class", "/proc/net", "/proc/disk", "/proc/smaps",
         "/proc/vmstat",
     ],
     "windows": [
         "windows", "win32", "WinError", "WindowsError", "win10", "win7",
-        "win", "mingw", "msys", "studio", "microsoft", "make.bat",
+        "win ", "mingw", "msys", "studio", "microsoft", "make.bat",
         "CloseHandle", "GetLastError", "NtQuery", "DLL", "MSVC", "TCHAR",
         "WCHAR", ".bat", "OpenProcess", "TerminateProcess", "appveyor",
     ],
@@ -53,16 +56,16 @@ labels_map = {
     "openbsd": ["openbsd"],
     "sunos": ["sunos", "solaris"],
     "wsl": ["wsl"],
-    "pypy": ["pypy"],
     "unix": [
         "psposix", "_psutil_posix", "waitpid", "statvfs", "/dev/tty",
         "/dev/pts",
     ],
+    "pypy": ["pypy"],
     # types
     "enhancement": ["enhancement"],
     "memleak": ["memory leak", "leaks memory", "memleak", "mem leak"],
     "api": ["idea", "proposal", "api", "feature"],
-    "performance": ["performance", "speedup", "slow", "fast"],
+    "performance": ["performance", "speedup", "speed up", "slow", "fast"],
     "wheels": ["wheel", "wheels"],
     "scripts": [
         "example script", "examples script", "example dir", "scripts/",
@@ -133,16 +136,18 @@ class Setter:
 
     # --- utils
 
-    def log(self, msg):
-        if not self.do_write:
-            msg = "(dry-run) " + msg
-        print(msg)
-
     def add_label(self, issue, label):
         assert label in self.avail_labels, (label, self.avail_labels)
         if not self.has_label(issue, label):
-            self.log("add label %r to '#%r: %s'" % (
-                label, issue.number, issue.title))
+            type_ = "PR:" if self.is_pr(issue) else "issue:"
+            print(textwrap.dedent("""\
+                %-10s     %s: %s
+                add label:     %s""" % (
+                type_,
+                hilite(issue.number, bold=1),
+                hilite(issue.title, bold=1),
+                hilite(label, 'green'),
+            )))
             if self.do_write:
                 issue.add_to_labels(label)
 
@@ -162,13 +167,42 @@ class Setter:
 
     # --- setters
 
-    def guess_from_title(self, issue):
+    def _guess_from_text(self, issue, text):
         for label, keywords in labels_map.items():
-            for key in keywords:
-                if key.lower() in issue.title.lower():
+            for keyword in keywords:
+                if keyword.lower() in text.lower():
                     issue_labels = [x.name for x in issue.labels]
                     if label not in issue_labels:
-                        self.add_label(issue, label)
+                        yield (label, keyword)
+
+    def guess_from_title(self, issue):
+        for label, keyword in self._guess_from_text(issue, issue.title):
+            self.add_label(issue, label)
+            self._print_text_match(issue.title, keyword)
+
+    def _print_text_match(self, text, keyword):
+        # print part of matched text
+        text = text.lower()
+        keyword = keyword.lower()
+        shift = 20
+        part = text.rpartition(keyword)
+        ss = part[0][-shift:] + hilite(keyword, 'brown') + part[2][:shift]
+        ss = ss.replace('\n', '\t')
+        print("match:         %s\n" % ss.strip())
+
+    def guess_from_body(self, issue):
+        ls = list(self._guess_from_text(issue, issue.body))
+        has_multi_os = len((set([x[0] for x in ls if x[0] in OS_LABELS]))) > 1
+        for label, keyword in ls:
+            if label in ('tests', 'api', 'performance'):
+                continue
+            if label in OS_LABELS:
+                if self.has_os_label(issue) or has_multi_os:
+                    continue
+                if self.has_label(issue, 'scripts'):
+                    continue
+                self.add_label(issue, label)
+                self._print_text_match(issue.body, keyword)
 
     def logical_adjust(self, issue):
         def check_dual_label(a, b):
@@ -222,15 +256,14 @@ class Setter:
         #         print(issue)
 
     def adjust_pr(self, pr):
-        files = sorted([x.filename for x in pr.get_files()])
-        # pure doc change
-        if files == ['docs/index.rst']:
-            self.add_label(pr, 'doc')
+        # files = sorted([x.filename for x in pr.get_files()])
+        # # pure doc change
+        # if files == ['docs/index.rst']:
+        #     self.add_label(pr, 'doc')
+        pass
 
 
 def main():
-    global WRITE
-
     # parser
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--tokenfile', required=False,
@@ -244,9 +277,10 @@ def main():
                         help="only process PRs (not issues)")
     parser.add_argument('-s', '--status', required=False, default='open',
                         help="issue status (open*, close, all)")
+    parser.add_argument('-n', '--number', required=False,
+                        metavar='int', type=int,
+                        help="only process N items instead of all")
     args = parser.parse_args()
-
-    # set globals
     with open(os.path.expanduser(args.tokenfile)) as f:
         token = f.read().strip()
 
@@ -257,11 +291,17 @@ def main():
         issues = getter.get_pulls(args.status)
     else:
         issues = getter.get_issues(args.status)
-    for issue in issues:
+    for idx, issue in enumerate(issues, 1):
+        if args.number and idx >= args.number:
+            break
         setter.guess_from_title(issue)
         setter.logical_adjust(issue)
-        # if setter.is_pr(issue):
-        #     setter.adjust_pr(issue)
+        if setter.is_pr(issue):
+            setter.adjust_pr(issue)
+            # if issue.body:
+            #     # want this to be the very last
+            #     setter.guess_from_body(issue)
+    print("processed %s issues" % idx)
 
 
 if __name__ == '__main__':

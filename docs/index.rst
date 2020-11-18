@@ -1796,7 +1796,8 @@ Process class
     - **position** (*Linux*): the file (offset) position.
     - **mode** (*Linux*): a string indicating how the file was opened, similarly
       to `open`_ builtin ``mode`` argument.
-      Possible values are ``'r'``, ``'w'``, ``'a'``, ``'r+'`` and ``'a+'``.
+      Possible values are ``'r'``, ``'w'``, ``'a'``, ``'r+'`` and ``'a+'``
+      (respectively: read, write, append, read & write, append & write).
       There's no distinction between files opened in binary or text mode
       (``"b"`` or ``"t"``).
     - **flags** (*Linux*): the flags which were passed to the underlying
