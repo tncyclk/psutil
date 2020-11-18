@@ -25,12 +25,23 @@ SCRIPTS_DIR = os.path.join(ROOT_DIR, 'scripts')
 
 USER = "giampaolo"
 PROJECT = "psutil"
+
 OS_LABELS = [
     "linux", "windows", "macos", "freebsd", "openbsd", "netbsd", "openbsd",
     "bsd", "sunos", "unix", "wsl", "aix", "cygwin",
 ]
 
-labels_map = {
+ILLOGICAL_PAIRS = [
+    ('bug', 'enhancement'),
+    ('doc', 'tests'),
+    ('scripts', 'doc'),
+    ('scripts', 'tests'),
+    ('bsd', 'freebsd'),
+    ('bsd', 'openbsd'),
+    ('bsd', 'netbsd'),
+]
+
+LABELS_MAP = {
     # platforms
     "linux": [
         "linux", "ubuntu", "redhat", "mint", "centos", "red hat", "archlinux",
@@ -83,7 +94,7 @@ labels_map = {
     ],
     # tests
     "tests": [
-        "test", "tests", "travis", "coverage", "cirrus", "appveyor",
+        " test ", "tests", "travis", "coverage", "cirrus", "appveyor",
         "continuous integration", "unittest", "pytest", "unit test",
     ],
     # critical errors
@@ -94,8 +105,12 @@ labels_map = {
     ],
 }
 
-labels_map['scripts'].extend(
+LABELS_MAP['scripts'].extend(
     [x for x in os.listdir(SCRIPTS_DIR) if x.endswith('.py')])
+
+
+def warn(msg):
+    print(hilite(">>> WARN: %s" % msg, color="red", bold=1), file=sys.stderr)
 
 
 class Getter:
@@ -170,32 +185,10 @@ class Setter:
         return 'PullRequest' in issue.__module__
 
     def should_add(self, issue, label):
-        # pairs that don't make sense
-        pairs = [
-            # new....already-assigned
-            ('bug', 'enhancement'),
-            ('scripts', 'doc'),
-            ('scripts', 'tests'),
-        ]
-        for left, right in pairs:
+        for left, right in ILLOGICAL_PAIRS:
             if label == left and self.has_label(issue, right):
                 return False
         return not self.has_label(issue, label)
-
-    # --- setters
-
-    def _guess_from_text(self, issue, text):
-        for label, keywords in labels_map.items():
-            for keyword in keywords:
-                if keyword.lower() in text.lower():
-                    # we have a match
-                    if self.should_add(issue, label):
-                        yield (label, keyword)
-
-    def guess_from_title(self, issue):
-        for label, keyword in self._guess_from_text(issue, issue.title):
-            self.add_label(issue, label)
-            self._print_text_match(issue.title, keyword)
 
     def _print_text_match(self, text, keyword):
         # print part of matched text
@@ -206,6 +199,21 @@ class Setter:
         ss = part[0][-shift:] + hilite(keyword, 'brown') + part[2][:shift]
         ss = ss.replace('\n', '\t')
         print("match:         %s\n" % ss.strip())
+
+    # --- setters
+
+    def _guess_from_text(self, issue, text):
+        for label, keywords in LABELS_MAP.items():
+            for keyword in keywords:
+                if keyword.lower() in text.lower():
+                    # we have a match
+                    if self.should_add(issue, label):
+                        yield (label, keyword)
+
+    def guess_from_title(self, issue):
+        for label, keyword in self._guess_from_text(issue, issue.title):
+            self.add_label(issue, label)
+            self._print_text_match(issue.title, keyword)
 
     def guess_from_body(self, issue):
         ls = list(self._guess_from_text(issue, issue.body))
@@ -221,63 +229,53 @@ class Setter:
                 self.add_label(issue, label)
                 self._print_text_match(issue.body, keyword)
 
+    # def guess_from_files(self, issue):
+    #     files = sorted([x.filename for x in pr.get_files()])
+    #     # pure doc change
+    #     if files == ['docs/index.rst']:
+    #         self.add_label(pr, 'doc')
+
     def logical_adjust(self, issue):
-        def check_dual_label(a, b):
-            if a in labels and b in labels:
-                print(">>> WARN: can't have %r and %r labels: %r" % (
-                      a, b, issue), file=sys.stderr)
-                return True
-            return False
+        # labels that don't make sense together
+        for left, right in ILLOGICAL_PAIRS:
+            if self.has_label(issue, left) and self.has_label(issue, right):
+                warn("illogical pair %r + %r for #%s: %s)" % (
+                    left, right, issue.number, issue.title))
 
-        labels = [x.name for x in issue.labels]
-        title = issue.title.lower()
-
-        # "bug" + "enhancement" don't make sense
-        check_dual_label("bug", "enhancement")
-        check_dual_label("scripts", "doc")
-        check_dual_label("scripts", "test")
-        # check_dual_label("bug", "doc")
-
-        # no "enhancement" nor "bug"
-        if 'bug' not in labels and 'enhancement' not in labels and \
-                "doc" not in labels:
-            if 'add support' in title or \
-                    'refactoring' in title or \
-                    'enhancement' in title or \
-                    'adds support' in title:
-                self.add_label(issue, 'enhancement')
-            elif 'fix' in title or \
-                    'fixes' in title or \
-                    'is incorrect' in title or \
-                    'is wrong' in title:
-                self.add_label(issue, 'bug')
-
-        # generic BSD
-        if not self.has_os_label(issue) and 'bsd' in title:
+        # assign generic BSD
+        if not self.has_os_label(issue) and 'bsd' in issue.title.lower():
             self.add_label(issue, 'bsd')
 
-        # if not self.has_os_label(issue) and not \
-        #         self.has_label(issue, 'doc') and not \
-        #         self.has_label(issue, 'test') and not \
-        #         self.has_label(issue, 'scripts'):
-        #     print(issue)
+    # def printers(self, issue)
+    #     # no "enhancement" nor "bug"
+    #     if 'bug' not in labels and 'enhancement' not in labels and \
+    #             "doc" not in labels:
+    #         if 'add support' in title or \
+    #                 'refactoring' in title or \
+    #                 'enhancement' in title or \
+    #                 'adds support' in title:
+    #             self.add_label(issue, 'enhancement')
+    #         elif 'fix' in title or \
+    #                 'fixes' in title or \
+    #                 'is incorrect' in title or \
+    #                 'is wrong' in title:
+    #             self.add_label(issue, 'bug')
 
-        # not "bug" nor "enhancement"
-        # if not self.has_label(issue, 'enhancement') and not \
-        #         self.has_label(issue, 'bug'):
-        #     if 'support' in title and 'broken' not in title:
-        #         self.add_label(issue, 'enhancement')
-        #     elif 'improve' in title or 'refactor' in title:
-        #         self.add_label(issue, 'enhancement')
-        #     else:
-        #         print(issue)
+    #     if not self.has_os_label(issue) and not \
+    #             self.has_label(issue, 'doc') and not \
+    #             self.has_label(issue, 'test') and not \
+    #             self.has_label(issue, 'scripts'):
+    #         print(issue)
 
-    def adjust_pr(self, pr):
-        # files = sorted([x.filename for x in pr.get_files()])
-        # # pure doc change
-        # if files == ['docs/index.rst']:
-        #     self.add_label(pr, 'doc')
-        pass
+    #     not "bug" nor "enhancement"
+    #     if not self.has_label(issue, 'enhancement') and not \
+    #             self.has_label(issue, 'bug'):
+    #         if 'support' in title and 'broken' not in title:
+    #             self.add_label(issue, 'enhancement')
+    #         elif 'improve' in title or 'refactor' in title:
+    #             self.add_label(issue, 'enhancement')
+    #         else:
+    #             print(issue)
 
 
 def main():
@@ -316,9 +314,7 @@ def main():
             break
         setter.guess_from_title(issue)
         setter.logical_adjust(issue)
-        if setter.is_pr(issue):
-            setter.adjust_pr(issue)
-        # want this to be the very last
+        # we want this to be the very last
         if args.body and issue.body:
             setter.guess_from_body(issue)
     print("processed %s issues" % idx)
