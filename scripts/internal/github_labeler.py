@@ -47,7 +47,7 @@ labels_map = {
     ],
     "macos": [
         "macos", "mac ", "osx", "os x", "mojave", "sierra", "capitan",
-        "yosemite", "catalina", "xcode", "darwin",
+        "yosemite", "catalina", "xcode", "darwin", "dylib",
     ],
     "aix": ["aix"],
     "cygwin": ["cygwin"],
@@ -71,9 +71,10 @@ labels_map = {
         "example script", "examples script", "example dir", "scripts/",
     ],
     # bug
-    "bug": ["can't execute", "can't install", "cannot execute",
-            "cannot install", "install fail", "fail install",
-            "failed install", "install error"],
+    "bug": [
+        "fail", "can't execute", "can't install", "cannot execute",
+        "cannot install", "install error", "crash", "critical",
+    ],
     # doc
     "doc": [
         "doc ", "document ", "documentation", "readthedocs", "pythonhosted",
@@ -140,13 +141,16 @@ class Setter:
         assert label in self.avail_labels, (label, self.avail_labels)
         if not self.has_label(issue, label):
             type_ = "PR:" if self.is_pr(issue) else "issue:"
+            assigned = ', '.join([x.name for x in issue.labels])
             print(textwrap.dedent("""\
                 %-10s     %s: %s
-                add label:     %s""" % (
+                assigned:      %s
+                new:           %s""" % (
                 type_,
-                hilite(issue.number, bold=1),
-                hilite(issue.title, bold=1),
-                hilite(label, 'green'),
+                hilite(issue.number, color='brown'),
+                hilite(issue.title, color='brown'),
+                assigned,
+                hilite(label, 'green', bold=1),
             )))
             if self.do_write:
                 issue.add_to_labels(label)
@@ -165,14 +169,27 @@ class Setter:
     def is_pr(self, issue):
         return 'PullRequest' in issue.__module__
 
+    def should_add(self, issue, label):
+        # pairs that don't make sense
+        pairs = [
+            # new....already-assigned
+            ('bug', 'enhancement'),
+            ('scripts', 'doc'),
+            ('scripts', 'tests'),
+        ]
+        for left, right in pairs:
+            if label == left and self.has_label(issue, right):
+                return False
+        return not self.has_label(issue, label)
+
     # --- setters
 
     def _guess_from_text(self, issue, text):
         for label, keywords in labels_map.items():
             for keyword in keywords:
                 if keyword.lower() in text.lower():
-                    issue_labels = [x.name for x in issue.labels]
-                    if label not in issue_labels:
+                    # we have a match
+                    if self.should_add(issue, label):
                         yield (label, keyword)
 
     def guess_from_title(self, issue):
@@ -272,6 +289,9 @@ def main():
     parser.add_argument('-w', '--write', required=False, default=False,
                         action='store_true',
                         help="do the actual changes (default: dryrun)")
+    parser.add_argument('-b', '--body', required=False, default=False,
+                        action='store_true',
+                        help="inspect text body")
     parser.add_argument('-p', '--pulls', required=False, default=False,
                         action='store_true',
                         help="only process PRs (not issues)")
@@ -298,9 +318,9 @@ def main():
         setter.logical_adjust(issue)
         if setter.is_pr(issue):
             setter.adjust_pr(issue)
-            # if issue.body:
-            #     # want this to be the very last
-            #     setter.guess_from_body(issue)
+        # want this to be the very last
+        if args.body and issue.body:
+            setter.guess_from_body(issue)
     print("processed %s issues" % idx)
 
 

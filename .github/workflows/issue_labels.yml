@@ -21,7 +21,7 @@ jobs:
   {"keywords": ["cygwin"], "labels": ["cygwin"], "assignees": [""]},
   {"keywords": ["freebsd"], "labels": ["freebsd"], "assignees": [""]},
   {"keywords": ["linux", "ubuntu", "redhat", "red hat", "mint", "centos", "archlinux", "debian", "alpine", "gentoo", "fedora", "slackware", "suse", "opensuse", "manylinux", "apt", "rpm", "yum", "RHEL", "kali", "/sys/class", "/sys/block", "/proc/net", "/proc/disk", "/proc/smaps", "/proc/vmstat"], "labels": ["linux"], "assignees": [""]},
-  {"keywords": ["macos", "mac ", "osx", "os x", "mojave", "sierra", "capitan", "darwin", "yosemite", "catalina", "xcode"], "labels": ["macos"], "assignees": [""]},
+  {"keywords": ["macos", "mac ", "osx", "os x", "mojave", "sierra", "capitan", "darwin", "yosemite", "catalina", "xcode", "dylib"], "labels": ["macos"], "assignees": [""]},
   {"keywords": ["netbsd"], "labels": ["netbsd"], "assignees": [""]},
   {"keywords": ["openbsd"], "labels": ["openbsd"], "assignees": [""]},
   {"keywords": ["sunos", "solaris"], "labels": ["sunos"], "assignees": ["wiggin15"]},
@@ -38,6 +38,6 @@ jobs:
   {"keywords": ["test", "tests", "travis", "coverage", "travis", "cirrus", "appveyor", "continuous integration", "dev guide", "devguide", "sphinx", "unittest", "pytest"], "labels": ["tests"], "assignees": [""]},
   {"keywords": ["Makefile"], "labels": ["unix"], "assignees": [""]},
   {"keywords": ["segfault", "segmentation fault", "core dumped", "RuntimeError", "WinError", "WindowsError", "MemoryError", "OverflowError", "ZeroDivisionError", "SystemError", "MemoryError"], "labels": ["priority-high"], "assignees": [""]},
-  {"keywords": ["can''t execute", "can''t install", "install fail", "fail install", "failed install", "install error"], "labels": ["bug"], "assignees": [""]},
+  {"keywords": ["fail", "can''t execute", "can''t install", "install error", "installation error", "crash", "critical"], "labels": ["bug"], "assignees": [""]},
   {"keywords": ["wheel"], "labels": ["wheels"], "assignees": [""]}
 ]'
